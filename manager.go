@@ -437,7 +437,7 @@ func (m *Manager) CreateSwarm(vms VMNodes, force bool) error {
 
 // UpdateSwarm updates an existing Docker Swarm cluster by adding any
 // missing manager or worker nodes that aren't already part of the cluster
-func (m *Manager) UpdateSwarm(vms VMNodes) error {
+func (m *Manager) UpdateSwarm(vms VMNodes, force bool) error {
 	currentNodes := make(map[string]NodeStatus)
 	desiredNodes := make(map[string]bool)
 
@@ -472,8 +472,13 @@ func (m *Manager) UpdateSwarm(vms VMNodes) error {
 	}
 
 	managers := vms.FilterByTag(RoleTag, ManagerRole)
-	if !(len(managers) == 3 || len(managers) == 5) {
-		return fmt.Errorf("error expected 3 or 5 managers but got %d", len(managers))
+
+	if force {
+		log.Warnf("skipping manager validation and forcing creation of cluster with %d managers", len(managers))
+	} else {
+		if !(len(managers) == 3 || len(managers) == 5) {
+			return fmt.Errorf("error expected 3 or 5 managers but got %d", len(managers))
+		}
 	}
 
 	// Pick a random manager out of the candidates
