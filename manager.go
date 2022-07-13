@@ -43,7 +43,7 @@ const (
 	nodesCommand       = `docker node ls --format "{{ json . }}"`
 	tasksCommand       = `docker node ps --format "{{ json .}}" %s`
 	initCommand        = `docker swarm init --advertise-addr %s --listen-addr %s`
-	joinCommand        = `docker swarm join --advertise-addr %s --listen-addr %s --token %s %s:2377`
+	joinCommand        = `docker swarm join --advertise-addr %s --listen-addr %s --token %s %s:2377 --availability %s`
 	tokenCommand       = `docker swarm join-token -q %s`
 	updateCommand      = `docker node update %s %s`
 	setAvailability    = `--availability %s`
@@ -208,6 +208,7 @@ func (m *Manager) joinSwarm(newNode VMNode, managerNode VMNode, token string) er
 		newNode.PrivateAddress,
 		token,
 		managerNode.PrivateAddress,
+		newNode.Availability,
 	)
 	_, err := m.runCmd(cmd)
 	if err != nil {
@@ -437,7 +438,7 @@ func (m *Manager) CreateSwarm(vms VMNodes, force bool) error {
 // UpdateSwarm updates an existing Docker Swarm cluster by adding any
 // missing manager or worker nodes that aren't already part of the cluster
 func (m *Manager) UpdateSwarm(vms VMNodes) error {
-	currentNodes := make(map[string]bool)
+	currentNodes := make(map[string]NodeStatus)
 	desiredNodes := make(map[string]bool)
 
 	nodes, err := m.GetNodes()
@@ -445,17 +446,20 @@ func (m *Manager) UpdateSwarm(vms VMNodes) error {
 		return fmt.Errorf("error getting current nodes: %w", err)
 	}
 	for _, node := range nodes {
-		currentNodes[node.Hostname] = true
+		currentNodes[node.Hostname] = node
 	}
 	for _, vm := range vms {
 		desiredNodes[vm.Hostname] = true
 	}
 
 	var newNodes VMNodes
+	var updateNodes VMNodes
 
 	for _, vm := range vms {
 		if _, ok := currentNodes[vm.Hostname]; !ok {
 			newNodes = append(newNodes, vm)
+		} else {
+			updateNodes = append(updateNodes, vm)
 		}
 	}
 
@@ -538,6 +542,15 @@ func (m *Manager) UpdateSwarm(vms VMNodes) error {
 		return fmt.Errorf("error draining old nodes: %w", err)
 	}
 
+	// Update availability for rest of nodes
+	for _, existingNode := range updateNodes {
+		nodeStatus := currentNodes[existingNode.Hostname]
+		if err := m.updateNodeAvailability(nodeStatus.ID, existingNode.Availability); err != nil {
+			log.WithError(err).Error("error updating node %s", nodeStatus.Hostname)
+			return fmt.Errorf("error updating nodes: %w", err)
+		}
+	}
+
 	if err := m.SwitchNode(manager.PublicAddress); err != nil {
 		return fmt.Errorf("error switching to manager node: %w", err)
 	}
@@ -561,14 +574,19 @@ func (m *Manager) getTasks(node string) (Tasks, error) {
 	return tasks, nil
 }
 
-func (m *Manager) drainNode(node string) error {
-	startedAt := time.Now()
-
-	cmd := fmt.Sprintf(updateCommand, fmt.Sprintf(setAvailability, availabilityDrain), node)
+func (m *Manager) updateNodeAvailability(node, newAvailability string) error {
+	cmd := fmt.Sprintf(updateCommand, fmt.Sprintf(setAvailability, newAvailability), node)
 	_, err := m.runCmd(cmd)
 	if err != nil {
 		return fmt.Errorf("error running update command: %w", err)
 	}
+	return nil
+}
+
+func (m *Manager) drainNode(node string) error {
+	startedAt := time.Now()
+
+	m.updateNodeAvailability(node, availabilityDrain)
 
 	ctx, cancel := context.WithTimeout(context.Background(), drainTimeout)
 	defer cancel()

@@ -44,6 +44,11 @@ const (
 	// `key1=value1&key2=value2&key3&key4`
 	// (This uses the URL Query String format).
 	LabelsTag = "labels"
+
+	// The possible values for the availability status of a node
+	ActiveAvailability = "active"
+	PauseAvailability  = "pause"
+	DrainAvailability  = "drain"
 )
 
 // VMNode represents a single VM Node and at a bare minimum contains the
@@ -53,6 +58,7 @@ type VMNode struct {
 	Hostname       string            `json:"hostname"`
 	PublicAddress  string            `json:"public_address"`
 	PrivateAddress string            `json:"private_address"`
+	Availability   string            `json:"availability"`
 	Tags           map[string]string `json:"tags"`
 }
 
