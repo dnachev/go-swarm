@@ -63,11 +63,13 @@ const (
 
 type Config struct {
 	Timeout time.Duration
+	Debug   bool
 }
 
 func NewDefaultConfig() *Config {
 	return &Config{
 		Timeout: DefaultTimeout,
+		Debug:   false,
 	}
 }
 
@@ -97,6 +99,10 @@ func NewManager(switcher Switcher, options ...Option) (*Manager, error) {
 			log.WithError(err).Error("error configuring swarm manager")
 			return nil, err
 		}
+	}
+
+	if m.config.Debug {
+		log.SetLevel(log.DebugLevel)
 	}
 
 	return m, nil
