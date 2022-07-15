@@ -90,6 +90,13 @@ func WithTimeout(timeout time.Duration) Option {
 	}
 }
 
+func WithDebug(debug bool) Option {
+	return func(cfg *Config) error {
+		cfg.Debug = debug
+		return nil
+	}
+}
+
 // NewManager constructs a new Manager type with the provider Switcher
 func NewManager(switcher Switcher, options ...Option) (*Manager, error) {
 	m := &Manager{switcher: switcher, config: NewDefaultConfig()}
