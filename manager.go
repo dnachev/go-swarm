@@ -42,7 +42,7 @@ const (
 	infoCommand        = `docker info --format "{{ json . }}"`
 	nodesCommand       = `docker node ls --format "{{ json . }}"`
 	tasksCommand       = `docker node ps --format "{{ json .}}" %s`
-	initCommand        = `docker swarm init --advertise-addr %s --listen-addr %s`
+	initCommand        = `docker swarm init --advertise-addr %s --listen-addr %s --availability %s`
 	joinCommand        = `docker swarm join --advertise-addr %s --listen-addr %s --token %s %s:2377 --availability %s`
 	tokenCommand       = `docker swarm join-token -q %s`
 	updateCommand      = `docker node update %s %s`
@@ -381,7 +381,7 @@ func (m *Manager) CreateSwarm(vms VMNodes, force bool) error {
 		return fmt.Errorf("error swarm cluster with id %s already exists", clusterID)
 	}
 
-	cmd := fmt.Sprintf(initCommand, manager.PrivateAddress, manager.PrivateAddress)
+	cmd := fmt.Sprintf(initCommand, manager.PrivateAddress, manager.PrivateAddress, manager.Availability)
 	if _, err := m.runCmd(cmd); err != nil {
 		return fmt.Errorf("error running init command: %w", err)
 	}
